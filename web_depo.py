@@ -27,14 +27,12 @@ creds_dict = json.loads(google_json_str)
 creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
-# Tabloya bağlan (Adının tam olarak 'Depo_Sistemi' olması gerekir)
 try:
     sheet = client.open('Depo_Sistemi')
 except:
-    st.error("Google Drive'da 'Depo_Sistemi' adında bir tablo bulunamadı. Lütfen ismini kontrol edin ve paylaşıma açtığınızdan emin olun.")
+    st.error("Google Drive'da 'Depo_Sistemi' adında bir tablo bulunamadı.")
     st.stop()
 
-# Sayfaları (Sekmeleri) kontrol et, yoksa oluştur
 try:
     ws_malzemeler = sheet.worksheet("Malzemeler")
 except:
@@ -57,7 +55,6 @@ def verileri_getir():
     if not kayitlar:
         return pd.DataFrame(columns=["ID", "Stok No", "Ürün Adı", "Miktar", "Birim", "Eklenme Tarihi", "SKT", "Üretim Tarihi", "Giriş Tarihi", "Resim Yolu", "Kritik Stok"])
     df = pd.DataFrame(kayitlar)
-    df['Kritik Stok'] = df['Kritik Stok'].fillna(10)
     return df
 
 def hareketleri_getir():
@@ -65,6 +62,12 @@ def hareketleri_getir():
     if not kayitlar:
         return pd.DataFrame(columns=["ID", "Tarih", "Kullanıcı", "İşlem", "Ürün Adı", "Miktar", "Açıklama"])
     return pd.DataFrame(kayitlar).sort_values(by="ID", ascending=False)
+
+def df_to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Sayfa1')
+    return output.getvalue()
 
 def qr_olustur(metin):
     qr = qrcode.QRCode(version=1, box_size=6, border=2)
@@ -118,8 +121,53 @@ else:
 
     with sekme1:
         st.markdown("### 📋 Güncel Depo Tablosu")
-        if st.button("📲 Telegram'a Acil Rapor Gönder", type="primary"):
-            telegram_mesaj_gonder("Sistem Kontrolü: Depo uygulamasına buluttan erişildi.")
+        krt_sayisi = 0
+        telegram_raporu = "⚠️ DEPO KRİTİK UYARI RAPORU ⚠️\n\n"
+        
+        for index, row in df.iterrows():
+            urun_adi = str(row.get('Ürün Adı', 'Bilinmeyen Ürün')).strip()
+            
+            # 1. SKT Uyarıları (Gizli Boşluk Temizleyici)
+            try:
+                skt_metni = str(row.get('SKT', '')).strip()
+                if skt_metni and skt_metni != "-" and skt_metni.lower() != "nan":
+                    skt = datetime.strptime(skt_metni, '%Y-%m-%d').date()
+                    kalan = (skt - bugun).days
+                    if kalan < 0:
+                        st.error(f"❌ {urun_adi} - TARİHİ GEÇTİ! ({skt_metni})")
+                        telegram_raporu += f"❌ {urun_adi} - TARİHİ GEÇTİ!\n"
+                        krt_sayisi += 1
+                    elif 0 <= kalan <= 30:
+                        st.warning(f"⚠️ {urun_adi} - SKT'ye {kalan} gün kaldı! ({skt_metni})")
+                        telegram_raporu += f"⚠️ {urun_adi} - {kalan} gün kaldı!\n"
+                        krt_sayisi += 1
+            except:
+                pass
+            
+            # 2. Kritik Stok Uyarısı (Gizli Boşluk Temizleyici)
+            try:
+                miktar_metni = str(row.get('Miktar', '0')).strip()
+                kritik_metni = str(row.get('Kritik Stok', '10')).strip()
+                
+                if not miktar_metni or miktar_metni.lower() == "nan": miktar_metni = "0"
+                if not kritik_metni or kritik_metni.lower() == "nan": kritik_metni = "10"
+                
+                miktar_val = float(miktar_metni)
+                kritik_val = float(kritik_metni)
+                
+                if miktar_val <= kritik_val:
+                    st.error(f"📉 STOK ALARMI: {urun_adi} bitmek üzere! (Kalan: {int(miktar_val)})")
+                    telegram_raporu += f"📉 ALARM: {urun_adi} (Kalan: {int(miktar_val)})\n"
+                    krt_sayisi += 1
+            except:
+                pass
+
+        if krt_sayisi == 0:
+            st.success("✅ Depo durumu çok iyi. Tarihi yaklaşan veya stoğu tükenen ürün yok.")
+            telegram_raporu += "✅ Kritik ürün bulunmamaktadır. Depo güvende!"
+
+        if st.button("📲 Telegram'a Rapor Gönder", type="primary"):
+            telegram_mesaj_gonder(telegram_raporu)
             st.toast("✅ Gönderildi!")
             
         gosterilecek_df = df.drop(columns=['Resim Yolu'], errors='ignore')
@@ -144,7 +192,7 @@ else:
                         eklenme_tarihi = datetime.now().strftime('%Y-%m-%d')
                         ws_malzemeler.append_row([yeni_id, stok, ad, miktar, birim, eklenme_tarihi, skt_t.strftime('%Y-%m-%d'), "-", "-", "", kritik])
                         log_kaydet(st.session_state['kullanici'], "YENİ ÜRÜN", ad, miktar, "Eklendi.")
-                        st.success("✅ Ürün Google Tablolara eklendi!")
+                        st.success("✅ Ürün eklendi!")
                         st.rerun()
 
     with sekme3:
@@ -154,53 +202,48 @@ else:
             secili_id = int(secili_guncelleme.split(" - ")[0])
             urun = df[df['ID'] == secili_id].iloc[0]
             
-            st.info(f"📦 Mevcut Stok: *{urun['Miktar']} {urun['Birim']}*")
+            urun_miktar = int(float(str(urun.get('Miktar', '0')).strip() or '0'))
+            urun_kritik = int(float(str(urun.get('Kritik Stok', '10')).strip() or '10'))
+            
+            st.info(f"📦 Mevcut Stok: *{urun_miktar} {urun['Birim']}*")
             
             with st.form("guncelleme_formu"):
                 col_g1, col_g2 = st.columns(2)
                 with col_g1:
-                    yeni_stok_no = st.text_input("Stok No (Değiştirebilirsiniz):", value=str(urun['Stok No']))
-                    kullanilan_miktar = st.number_input("➖ Depodan Çıkış (Kullanılan):", min_value=0, max_value=int(urun['Miktar']), step=1)
+                    yeni_stok_no = st.text_input("Stok No (Değiştirebilirsiniz):", value=str(urun.get('Stok No', '')))
+                    kullanilan_miktar = st.number_input("➖ Depodan Çıkış (Kullanılan):", min_value=0, max_value=urun_miktar, step=1)
                     eklenen_miktar = st.number_input("➕ Depoya Giriş (Yeni Gelen):", min_value=0, step=1)
                     
                 with col_g2:
                     try:
-                        mevcut_skt = datetime.strptime(str(urun['SKT']), '%Y-%m-%d').date()
+                        mevcut_skt = datetime.strptime(str(urun.get('SKT', '')).strip(), '%Y-%m-%d').date()
                     except:
                         mevcut_skt = bugun
                         
                     yeni_skt = st.date_input("Son Kullanma Tarihi (SKT):", value=mevcut_skt)
-                    yeni_kritik = st.number_input("Kritik Stok Sınırı:", value=int(urun['Kritik Stok']), min_value=1, step=1)
+                    yeni_kritik = st.number_input("Kritik Stok Sınırı:", value=urun_kritik, min_value=1, step=1)
                 
                 if st.form_submit_button("💾 Değişiklikleri Kaydet", type="primary"):
-                    yeni_toplam = int(urun['Miktar']) - kullanilan_miktar + eklenen_miktar
-                    # Tablodaki satır numarasını bul (ID başlık satırı nedeniyle +2)
+                    yeni_toplam = urun_miktar - kullanilan_miktar + eklenen_miktar
                     satir_no = df[df['ID'] == secili_id].index[0] + 2
                     
-                    # Google Tablolardaki hücreleri tek tek güncelle
-                    ws_malzemeler.update_cell(satir_no, 2, yeni_stok_no) # 2. Sütun Stok No
-                    ws_malzemeler.update_cell(satir_no, 4, yeni_toplam)  # 4. Sütun Miktar
-                    ws_malzemeler.update_cell(satir_no, 7, yeni_skt.strftime('%Y-%m-%d')) # 7. Sütun SKT
-                    ws_malzemeler.update_cell(satir_no, 11, yeni_kritik) # 11. Sütun Kritik Stok
+                    ws_malzemeler.update_cell(satir_no, 2, yeni_stok_no) 
+                    ws_malzemeler.update_cell(satir_no, 4, yeni_toplam)  
+                    ws_malzemeler.update_cell(satir_no, 7, yeni_skt.strftime('%Y-%m-%d')) 
+                    ws_malzemeler.update_cell(satir_no, 11, yeni_kritik) 
                     
-                    # Log Kayıtları
-                    if kullanilan_miktar > 0: 
-                        log_kaydet(st.session_state['kullanici'], "ÇIKIŞ", urun['Ürün Adı'], kullanilan_miktar, "")
-                    if eklenen_miktar > 0: 
-                        log_kaydet(st.session_state['kullanici'], "GİRİŞ", urun['Ürün Adı'], eklenen_miktar, "")
-                    if yeni_stok_no != str(urun['Stok No']) or yeni_skt.strftime('%Y-%m-%d') != str(urun['SKT']):
-                        log_kaydet(st.session_state['kullanici'], "BİLGİ GÜNCELLEME", urun['Ürün Adı'], 0, "Stok No, Kritik Sınır veya SKT değiştirildi.")
-                        
-                    st.success("Ürün bilgileri ve stok başarıyla güncellendi!")
+                    if kullanilan_miktar > 0: log_kaydet(st.session_state['kullanici'], "ÇIKIŞ", urun['Ürün Adı'], kullanilan_miktar, "")
+                    if eklenen_miktar > 0: log_kaydet(st.session_state['kullanici'], "GİRİŞ", urun['Ürün Adı'], eklenen_miktar, "")
+                    
+                    st.success("Ürün bilgileri başarıyla güncellendi!")
                     st.rerun()
                     
             st.divider()
             if st.session_state['rol'] == "admin":
-                st.markdown("### 🗑️ Ürünü Tamamen Sil")
-                if st.button("Seçili Ürünü Depodan Tamamen Sil"):
+                if st.button("🗑️ Seçili Ürünü Tamamen Sil"):
                     satir_no = df[df['ID'] == secili_id].index[0] + 2
                     ws_malzemeler.delete_rows(satir_no)
-                    log_kaydet(st.session_state['kullanici'], "ÜRÜN SİLİNDİ", urun['Ürün Adı'], urun['Miktar'], "Ürün tamamen silindi.")
+                    log_kaydet(st.session_state['kullanici'], "ÜRÜN SİLİNDİ", urun['Ürün Adı'], urun_miktar, "Silindi.")
                     st.success("Ürün silindi!")
                     st.rerun()
 
@@ -219,14 +262,20 @@ else:
                     if okunan_stok:
                         eslesen = df[df['Stok No'] == str(okunan_stok)]
                         if not eslesen.empty:
-                            u_isim, u_id, u_mik = eslesen.iloc[0]['Ürün Adı'], eslesen.iloc[0]['ID'], eslesen.iloc[0]['Miktar']
+                            u_isim = eslesen.iloc[0]['Ürün Adı']
+                            u_id = eslesen.iloc[0]['ID']
+                            u_mik = int(float(str(eslesen.iloc[0]['Miktar']).strip() or '0'))
+                            
                             st.info(f"📦 Bulunan: *{u_isim}* (Mevcut: {u_mik})")
                             with st.form("qr_form"):
-                                miktar_dus = st.number_input("➖ Çıkarılacak:", min_value=0, max_value=int(u_mik), step=1)
-                                miktar_ekle = st.number_input("➕ Eklenecek:", min_value=0, step=1)
+                                col_qr1, col_qr2 = st.columns(2)
+                                with col_qr1:
+                                    miktar_dus = st.number_input("➖ Çıkarılacak:", min_value=0, max_value=u_mik, step=1)
+                                with col_qr2:
+                                    miktar_ekle = st.number_input("➕ Eklenecek:", min_value=0, step=1)
                                 if st.form_submit_button("💾 Güncelle", type="primary"):
                                     if miktar_dus > 0 or miktar_ekle > 0:
-                                        yeni = int(u_mik) - miktar_dus + miktar_ekle
+                                        yeni = u_mik - miktar_dus + miktar_ekle
                                         satir_no = eslesen.index[0] + 2
                                         ws_malzemeler.update_cell(satir_no, 4, yeni)
                                         if miktar_dus > 0: log_kaydet(st.session_state['kullanici'], "QR ÇIKIŞ", u_isim, miktar_dus, "")
@@ -234,6 +283,7 @@ else:
                                         st.rerun()
                         else: st.error("Ürün bulunamadı.")
                 except: st.error("QR okunamadı.")
+            else: st.warning("QR kod algılanamadı.")
 
     with sekme4:
         st.subheader("🪪 Ürün Tanıtım Kartı")
