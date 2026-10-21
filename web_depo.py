@@ -148,32 +148,59 @@ else:
                         st.rerun()
 
     with sekme3:
-        st.subheader("🔄 Manuel Güncelleme")
+        st.subheader("🔄 Ürün Bilgilerini ve Stoğu Güncelle")
         if not df.empty:
-            secili_guncelleme = st.selectbox("Ürün Seçin:", df['ID'].astype(str) + " - " + df['Ürün Adı'])
+            secili_guncelleme = st.selectbox("İşlem yapılacak ürünü seçin:", df['ID'].astype(str) + " - " + df['Ürün Adı'])
             secili_id = int(secili_guncelleme.split(" - ")[0])
             urun = df[df['ID'] == secili_id].iloc[0]
-            st.info(f"Mevcut: {urun['Miktar']} {urun['Birim']}")
             
-            dus = st.number_input("➖ Çıkış:", min_value=0, max_value=int(urun['Miktar']), step=1)
-            ekle = st.number_input("➕ Giriş:", min_value=0, step=1)
-            if st.button("💾 Kaydet"):
-                yeni_miktar = int(urun['Miktar']) - dus + ekle
-                # Hücre satırını bul (ID başlık satırı nedeniyle +1)
-                satir_no = df[df['ID'] == secili_id].index[0] + 2
-                ws_malzemeler.update_cell(satir_no, 4, yeni_miktar) # Miktar 4. sütunda
+            st.info(f"📦 Mevcut Stok: *{urun['Miktar']} {urun['Birim']}*")
+            
+            with st.form("guncelleme_formu"):
+                col_g1, col_g2 = st.columns(2)
+                with col_g1:
+                    yeni_stok_no = st.text_input("Stok No (Değiştirebilirsiniz):", value=str(urun['Stok No']))
+                    kullanilan_miktar = st.number_input("➖ Depodan Çıkış (Kullanılan):", min_value=0, max_value=int(urun['Miktar']), step=1)
+                    eklenen_miktar = st.number_input("➕ Depoya Giriş (Yeni Gelen):", min_value=0, step=1)
+                    
+                with col_g2:
+                    try:
+                        mevcut_skt = datetime.strptime(str(urun['SKT']), '%Y-%m-%d').date()
+                    except:
+                        mevcut_skt = bugun
+                        
+                    yeni_skt = st.date_input("Son Kullanma Tarihi (SKT):", value=mevcut_skt)
+                    yeni_kritik = st.number_input("Kritik Stok Sınırı:", value=int(urun['Kritik Stok']), min_value=1, step=1)
                 
-                if dus > 0: log_kaydet(st.session_state['kullanici'], "ÇIKIŞ", urun['Ürün Adı'], dus, "")
-                if ekle > 0: log_kaydet(st.session_state['kullanici'], "GİRİŞ", urun['Ürün Adı'], ekle, "")
-                st.success("Google Tablolar güncellendi!")
-                st.rerun()
-                
+                if st.form_submit_button("💾 Değişiklikleri Kaydet", type="primary"):
+                    yeni_toplam = int(urun['Miktar']) - kullanilan_miktar + eklenen_miktar
+                    # Tablodaki satır numarasını bul (ID başlık satırı nedeniyle +2)
+                    satir_no = df[df['ID'] == secili_id].index[0] + 2
+                    
+                    # Google Tablolardaki hücreleri tek tek güncelle
+                    ws_malzemeler.update_cell(satir_no, 2, yeni_stok_no) # 2. Sütun Stok No
+                    ws_malzemeler.update_cell(satir_no, 4, yeni_toplam)  # 4. Sütun Miktar
+                    ws_malzemeler.update_cell(satir_no, 7, yeni_skt.strftime('%Y-%m-%d')) # 7. Sütun SKT
+                    ws_malzemeler.update_cell(satir_no, 11, yeni_kritik) # 11. Sütun Kritik Stok
+                    
+                    # Log Kayıtları
+                    if kullanilan_miktar > 0: 
+                        log_kaydet(st.session_state['kullanici'], "ÇIKIŞ", urun['Ürün Adı'], kullanilan_miktar, "")
+                    if eklenen_miktar > 0: 
+                        log_kaydet(st.session_state['kullanici'], "GİRİŞ", urun['Ürün Adı'], eklenen_miktar, "")
+                    if yeni_stok_no != str(urun['Stok No']) or yeni_skt.strftime('%Y-%m-%d') != str(urun['SKT']):
+                        log_kaydet(st.session_state['kullanici'], "BİLGİ GÜNCELLEME", urun['Ürün Adı'], 0, "Stok No, Kritik Sınır veya SKT değiştirildi.")
+                        
+                    st.success("Ürün bilgileri ve stok başarıyla güncellendi!")
+                    st.rerun()
+                    
             st.divider()
             if st.session_state['rol'] == "admin":
-                if st.button("🗑️ Seçili Ürünü Tamamen Sil"):
+                st.markdown("### 🗑️ Ürünü Tamamen Sil")
+                if st.button("Seçili Ürünü Depodan Tamamen Sil"):
                     satir_no = df[df['ID'] == secili_id].index[0] + 2
                     ws_malzemeler.delete_rows(satir_no)
-                    log_kaydet(st.session_state['kullanici'], "ÜRÜN SİLİNDİ", urun['Ürün Adı'], urun['Miktar'], "Silindi.")
+                    log_kaydet(st.session_state['kullanici'], "ÜRÜN SİLİNDİ", urun['Ürün Adı'], urun['Miktar'], "Ürün tamamen silindi.")
                     st.success("Ürün silindi!")
                     st.rerun()
 
