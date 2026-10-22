@@ -117,7 +117,7 @@ else:
             st.session_state['giris_yapildi'] = False
             st.rerun()
 
-    sekme1, sekme2, sekme3, sekme6, sekme4, sekme5 = st.tabs(["📊 Özet", "➕ Ürün Ekle", "🔄 Güncelle", "📷 QR İşlem", "🪪 Ürün Kartı", "📝 Geçmiş"])
+    sekme1, sekme2, sekme3, sekme6, sekme4, sekme5 = st.tabs(["📊 Özet", "➕ Ürün Ekle", "🔄 Güncelle", "⚡ Hızlı İşlem", "🪪 Ürün Kartı", "📝 Geçmiş"])
 
     with sekme1:
         st.markdown("### 📋 Güncel Depo Tablosu")
@@ -248,42 +248,68 @@ else:
                     st.rerun()
 
     with sekme6:
-        st.subheader("📷 QR Kod Okutarak Hızlı İşlem")
-        resim = st.camera_input("Kamerayı Aç ve Okut")
-        if resim is not None:
+        st.subheader("⚡ Stok Numarası veya QR ile Hızlı İşlem")
+        st.write("Ürünün QR kodunu kameraya okutun veya doğrudan Stok Numarasını elle yazın.")
+        
+        aranan_stok = st.text_input("🔍 Stok Numarasını Yazın ve Enter'a Basın:")
+        resim = st.camera_input("📷 Veya Kamerayı Aç ve QR Okut")
+        
+        bulunan_stok_no = None
+        
+        if aranan_stok:
+            bulunan_stok_no = str(aranan_stok).strip()
+        elif resim is not None:
             img = Image.open(resim)
             cv_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
             data, _, _ = cv2.QRCodeDetector().detectAndDecode(cv_img)
-            
             if data:
                 st.success("✅ QR Kod Okundu!")
                 try:
-                    okunan_stok = next((s.split("Stok No:")[1].strip() for s in data.split('\n') if "Stok No:" in s), None)
-                    if okunan_stok:
-                        eslesen = df[df['Stok No'] == str(okunan_stok)]
-                        if not eslesen.empty:
-                            u_isim = eslesen.iloc[0]['Ürün Adı']
-                            u_id = eslesen.iloc[0]['ID']
-                            u_mik = int(float(str(eslesen.iloc[0]['Miktar']).strip() or '0'))
+                    bulunan_stok_no = next((s.split("Stok No:")[1].strip() for s in data.split('\n') if "Stok No:" in s), None)
+                except:
+                    st.error("QR kod formatı anlaşılamadı.")
+            else:
+                st.warning("QR kod algılanamadı.")
+                
+        if bulunan_stok_no:
+            eslesen = df[df['Stok No'] == bulunan_stok_no]
+            if not eslesen.empty:
+                u_isim = eslesen.iloc[0]['Ürün Adı']
+                u_id = eslesen.iloc[0]['ID']
+                u_mik = int(float(str(eslesen.iloc[0]['Miktar']).strip() or '0'))
+                u_resim = eslesen.iloc[0].get('Resim Yolu', '')
+                
+                st.info(f"📦 Bulunan Ürün: *{u_isim}* (Mevcut Stok: {u_mik})")
+                
+                # Ürün fotoğrafını bulup ekranda göster
+                if pd.notna(u_resim) and str(u_resim).strip() not in ["", "-", "nan"]:
+                    resim_tam_yol = os.path.join(RESIM_KLASORU, str(u_resim))
+                    if os.path.exists(resim_tam_yol):
+                        st.image(Image.open(resim_tam_yol), width=200)
+                
+                with st.form("hizli_islem_formu"):
+                    col_q1, col_q2 = st.columns(2)
+                    with col_q1:
+                        miktar_dus = st.number_input("➖ Çıkarılacak Miktar:", min_value=0, max_value=u_mik, step=1)
+                    with col_q2:
+                        miktar_ekle = st.number_input("➕ Eklenecek Miktar:", min_value=0, step=1)
+                        
+                    if st.form_submit_button("💾 Güncelle", type="primary"):
+                        if miktar_dus > 0 or miktar_ekle > 0:
+                            yeni = u_mik - miktar_dus + miktar_ekle
+                            satir_no = eslesen.index[0] + 2
+                            ws_malzemeler.update_cell(satir_no, 4, yeni)
                             
-                            st.info(f"📦 Bulunan: *{u_isim}* (Mevcut: {u_mik})")
-                            with st.form("qr_form"):
-                                col_qr1, col_qr2 = st.columns(2)
-                                with col_qr1:
-                                    miktar_dus = st.number_input("➖ Çıkarılacak:", min_value=0, max_value=u_mik, step=1)
-                                with col_qr2:
-                                    miktar_ekle = st.number_input("➕ Eklenecek:", min_value=0, step=1)
-                                if st.form_submit_button("💾 Güncelle", type="primary"):
-                                    if miktar_dus > 0 or miktar_ekle > 0:
-                                        yeni = u_mik - miktar_dus + miktar_ekle
-                                        satir_no = eslesen.index[0] + 2
-                                        ws_malzemeler.update_cell(satir_no, 4, yeni)
-                                        if miktar_dus > 0: log_kaydet(st.session_state['kullanici'], "QR ÇIKIŞ", u_isim, miktar_dus, "")
-                                        if miktar_ekle > 0: log_kaydet(st.session_state['kullanici'], "QR GİRİŞ", u_isim, miktar_ekle, "")
-                                        st.rerun()
-                        else: st.error("Ürün bulunamadı.")
-                except: st.error("QR okunamadı.")
-            else: st.warning("QR kod algılanamadı.")
+                            if miktar_dus > 0: log_kaydet(st.session_state['kullanici'], "HIZLI ÇIKIŞ", u_isim, miktar_dus, f"Stok No: {bulunan_stok_no}")
+                            if miktar_ekle > 0: log_kaydet(st.session_state['kullanici'], "HIZLI GİRİŞ", u_isim, miktar_ekle, f"Stok No: {bulunan_stok_no}")
+                            
+                            st.success("Stok başarıyla güncellendi!")
+                            st.rerun()
+                        else:
+                            st.warning("Lütfen işlem yapmak için eklenecek veya çıkarılacak bir miktar girin.")
+            else:
+                st.error("❌ Bu stok numarasına ait ürün bulunamadı.")
+                st.info("💡 Not: İleride tekrar deponuza gelecek ürünleri silmeyin, miktarlarını 0'a düşürün. Böylece bilgileri ve fotoğrafları kayıtlı kalır.")
 
     with sekme4:
         st.subheader("🪪 Ürün Tanıtım Kartı")
