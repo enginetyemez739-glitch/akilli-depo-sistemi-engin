@@ -120,35 +120,38 @@ else:
     sekme1, sekme2, sekme3, sekme6, sekme4, sekme5 = st.tabs(["📊 Özet", "➕ Ürün Ekle", "🔄 Güncelle", "⚡ Hızlı İşlem", "🪪 Ürün Kartı", "📝 Geçmiş"])
 
     with sekme1:
-        st.markdown("### 📋 Güncel Depo Tablosu")
+        st.markdown("### 📋 Depo Uyarıları")
         krt_sayisi = 0
         telegram_raporu = "⚠️ DEPO KRİTİK UYARI RAPORU ⚠️\n\n"
         
         for index, row in df.iterrows():
             urun_adi = str(row.get('Ürün Adı', 'Bilinmeyen Ürün')).strip()
+            stok_no = str(row.get('Stok No', '-'))
+            miktar_metni = str(row.get('Miktar', '0')).strip()
+            birim = str(row.get('Birim', '')).strip()
             
-            # 1. SKT Uyarıları (Gizli Boşluk Temizleyici)
+            # 1. SKT Uyarıları (Parti Bazlı Detaylı)
             try:
                 skt_metni = str(row.get('SKT', '')).strip()
                 if skt_metni and skt_metni != "-" and skt_metni.lower() != "nan":
                     skt = datetime.strptime(skt_metni, '%Y-%m-%d').date()
                     kalan = (skt - bugun).days
+                    uyari_baslik = f"{urun_adi} (Stok No: {stok_no} | {miktar_metni} {birim})"
+                    
                     if kalan < 0:
-                        st.error(f"❌ {urun_adi} - TARİHİ GEÇTİ! ({skt_metni})")
-                        telegram_raporu += f"❌ {urun_adi} - TARİHİ GEÇTİ!\n"
+                        st.error(f"❌ {uyari_baslik} - TARİHİ GEÇTİ! ({skt_metni})")
+                        telegram_raporu += f"❌ {uyari_baslik} - TARİHİ GEÇTİ!\n"
                         krt_sayisi += 1
                     elif 0 <= kalan <= 30:
-                        st.warning(f"⚠️ {urun_adi} - SKT'ye {kalan} gün kaldı! ({skt_metni})")
-                        telegram_raporu += f"⚠️ {urun_adi} - {kalan} gün kaldı!\n"
+                        st.warning(f"⚠️ {uyari_baslik} - SKT'ye {kalan} gün kaldı! ({skt_metni})")
+                        telegram_raporu += f"⚠️ {uyari_baslik} - {kalan} gün kaldı!\n"
                         krt_sayisi += 1
             except:
                 pass
             
-            # 2. Kritik Stok Uyarısı (Gizli Boşluk Temizleyici)
+            # 2. Kritik Stok Uyarısı (Genel)
             try:
-                miktar_metni = str(row.get('Miktar', '0')).strip()
                 kritik_metni = str(row.get('Kritik Stok', '10')).strip()
-                
                 if not miktar_metni or miktar_metni.lower() == "nan": miktar_metni = "0"
                 if not kritik_metni or kritik_metni.lower() == "nan": kritik_metni = "10"
                 
@@ -156,8 +159,8 @@ else:
                 kritik_val = float(kritik_metni)
                 
                 if miktar_val <= kritik_val:
-                    st.error(f"📉 STOK ALARMI: {urun_adi} bitmek üzere! (Kalan: {int(miktar_val)})")
-                    telegram_raporu += f"📉 ALARM: {urun_adi} (Kalan: {int(miktar_val)})\n"
+                    st.error(f"📉 STOK ALARMI: {urun_adi} (Stok No: {stok_no}) bitmek üzere! (Kalan: {int(miktar_val)} {birim})")
+                    telegram_raporu += f"📉 ALARM: {urun_adi} (Stok No: {stok_no}) (Kalan: {int(miktar_val)} {birim})\n"
                     krt_sayisi += 1
             except:
                 pass
@@ -170,7 +173,30 @@ else:
             telegram_mesaj_gonder(telegram_raporu)
             st.toast("✅ Gönderildi!")
             
-        gosterilecek_df = df.drop(columns=['Resim Yolu'], errors='ignore')
+        st.divider()
+        
+        # TOPLAM STOK GÖRÜNÜMÜ
+        st.markdown("### 📦 Stok Numarasına Göre Genel Toplamlar")
+        try:
+            df['Miktar_Sayi'] = pd.to_numeric(df['Miktar'], errors='coerce').fillna(0)
+            
+            # Stok Numarasına göre grupla, isim ve birimin ilk girilenini baz al, miktarları topla
+            toplam_stok_df = df.groupby('Stok No').agg({
+                'Ürün Adı': 'first',
+                'Miktar_Sayi': 'sum',
+                'Birim': 'first'
+            }).reset_index()
+            
+            toplam_stok_df.rename(columns={'Miktar_Sayi': 'Toplam Miktar'}, inplace=True)
+            # Sütun sırasını düzenle
+            toplam_stok_df = toplam_stok_df[['Stok No', 'Ürün Adı', 'Toplam Miktar', 'Birim']]
+            
+            st.dataframe(toplam_stok_df, use_container_width=True, hide_index=True)
+        except:
+            st.info("Toplamlar hesaplanırken bir hata oluştu. Miktar sütununda sadece rakam olduğundan emin olun.")
+
+        st.markdown("### 🔍 Detaylı Parti (SKT ve Stok No) Listesi")
+        gosterilecek_df = df.drop(columns=['Resim Yolu', 'Miktar_Sayi'], errors='ignore')
         st.dataframe(gosterilecek_df, use_container_width=True, hide_index=True)
 
     with sekme2:
