@@ -272,7 +272,7 @@ else:
                 st.warning("QR kod algılanamadı.")
                 
         if bulunan_stok_no:
-            eslesen = df[df['Stok No'] == bulunan_stok_no]
+            eslesen = df[df['Stok No'].astype(str).str.strip() == bulunan_stok_no]
             if not eslesen.empty:
                 u_isim = eslesen.iloc[0]['Ürün Adı']
                 u_id = eslesen.iloc[0]['ID']
