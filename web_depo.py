@@ -188,7 +188,7 @@ else:
                 skt_t = st.date_input("⏳ SKT")
                 if st.form_submit_button("🚀 Ekle"):
                     if ad and stok:
-                        yeni_id = len(ws_malzemeler.get_all_values())
+                        yeni_id = int(df['ID'].max()) + 1 if not df.empty else 1
                         eklenme_tarihi = datetime.now().strftime('%Y-%m-%d')
                         ws_malzemeler.append_row([yeni_id, stok, ad, miktar, birim, eklenme_tarihi, skt_t.strftime('%Y-%m-%d'), "-", "-", "", kritik])
                         log_kaydet(st.session_state['kullanici'], "YENİ ÜRÜN", ad, miktar, "Eklendi.")
