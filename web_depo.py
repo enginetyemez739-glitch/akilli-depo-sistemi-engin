@@ -84,7 +84,7 @@ def telegram_mesaj_gonder(mesaj):
     try: requests.post(url, data=payload)
     except: pass
 
-st.set_page_config(page_title="Akıllı Depo PRO", page_icon="📦", layout="wide")
+st.set_page_config(page_title="MİDES - Akıllı Depo", page_icon="📦", layout="wide")
 
 if 'giris_yapildi' not in st.session_state:
     st.session_state.update({'giris_yapildi': False, 'kullanici': "", 'rol': ""})
@@ -110,7 +110,7 @@ else:
     bugun = datetime.now().date()
     
     c_ust1, c_ust2 = st.columns([4, 1])
-    with c_ust1: st.title("📦 Akıllı Depo PRO (Bulut)")
+    with c_ust1: st.title("📦 MİDES - Merkezi İkmal ve Depo Sistemi")")
     with c_ust2:
         st.write(f"👤 *{st.session_state['kullanici']}*")
         if st.button("🚪 Çıkış Yap"):
@@ -122,7 +122,7 @@ else:
     with sekme1:
         st.markdown("### 📋 Depo Uyarıları")
         krt_sayisi = 0
-        telegram_raporu = "⚠️ DEPO KRİTİK UYARI RAPORU ⚠️\n\n"
+        telegram_raporu = "⚠️ MİDES KRİTİK UYARI RAPORU ⚠️\n\n"
         
         for index, row in df.iterrows():
             urun_adi = str(row.get('Ürün Adı', 'Bilinmeyen Ürün')).strip()
