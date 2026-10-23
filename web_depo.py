@@ -110,7 +110,7 @@ else:
     bugun = datetime.now().date()
     
     c_ust1, c_ust2 = st.columns([4, 1])
-    with c_ust1: st.title("📦 MİDES - Merkezi İkmal ve Depo Sistemi")")
+    with c_ust1: st.title("📦 MİDES - Merkezi İkmal ve Depo Sistemi")
     with c_ust2:
         st.write(f"👤 *{st.session_state['kullanici']}*")
         if st.button("🚪 Çıkış Yap"):
