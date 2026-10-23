@@ -28,7 +28,7 @@ creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
 try:
-    sheet = client.open('Depo_Sistemi')
+    sheet = client.open('MİDES - Gıda Deposu')
 except:
     st.error("Google Drive'da 'Depo_Sistemi' adında bir tablo bulunamadı.")
     st.stop()
