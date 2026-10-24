@@ -134,10 +134,10 @@ else:
         st.warning(f"⚠️ Dikkat: Şifrenizin geçerlilik süresinin dolmasına {kalan_gun} gün kalmıştır.")
     
     st.rerun()
-                    else:
-                        st.error("❌ Bu depoya giriş yetkiniz bulunmamaktadır!")
-                else:
-                    st.error("❌ Kullanıcı adı veya şifre hatalı!")
+    else:
+        st.error("❌ Bu depoya giriş yetkiniz bulunmamaktadır!")
+    else:
+        st.error("❌ Kullanıcı adı veya şifre hatalı!")
 else:
     df = verileri_getir()
     bugun = datetime.now().date()
