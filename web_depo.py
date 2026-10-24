@@ -121,21 +121,21 @@ if not st.session_state['giris_yapildi']:
                         st.session_state['rol'] = "admin" if yetki == "Yonetici" else "personel"
                         
                         son_guncelleme = pd.to_datetime(kullanici['Son Güncelleme'].values[0], errors='coerce')
-gecen_gun = (datetime.today() - son_guncelleme).days
-kalan_gun = 90 - gecen_gun
-
-if gecen_gun >= 90:
-    st.session_state['sifre_degistirme_modu'] = True
-else:
-    st.session_state['sifre_degistirme_modu'] = False
-    st.session_state['giris_yapildi'] = True
-    
-    if kalan_gun <= 5:
-        st.warning(f"⚠️ Dikkat: Şifrenizin geçerlilik süresinin dolmasına {kalan_gun} gün kalmıştır.")
-    
-    st.rerun()
-else:
-        st.error("❌ Bu depoya giriş yetkiniz bulunmamaktadır!")
+                        gecen_gun = (datetime.today() - son_guncelleme).days
+                        kalan_gun = 90 - gecen_gun
+                        
+                        if gecen_gun >= 90:
+                            st.session_state['sifre_degistirme_modu'] = True
+                        else:
+                            st.session_state['sifre_degistirme_modu'] = False
+                            st.session_state['giris_yapildi'] = True
+                            
+                            if kalan_gun <= 5:
+                                st.warning(f"⚠️ Dikkat: Şifrenizin geçerlilik süresinin dolmasına {kalan_gun} gün kalmıştır.")
+                            
+                            st.rerun()
+                    else:
+                            st.error("❌ Bu depoya giriş yetkiniz bulunmamaktadır!")
 else:
         st.error("❌ Kullanıcı adı veya şifre hatalı!")
 else:
