@@ -216,8 +216,7 @@ else:
 
     with sekme2:
         st.subheader("➕ Yeni Ürün Girişi")
-        if st.session_state['rol'] == "personel":
-            st.warning("Yetkiniz yok. Sadece yöneticiler yeni ürün ekleyebilir.")
+    
         else:
             with st.form("ekleme_formu", clear_on_submit=True):
                 c1, c2, c3, c4 = st.columns(4)
