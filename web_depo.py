@@ -216,23 +216,6 @@ else:
 
     with sekme2:
         st.subheader("➕ Yeni Ürün Girişi")
-    
-        else:
-            with st.form("ekleme_formu", clear_on_submit=True):
-                c1, c2, c3, c4 = st.columns(4)
-                stok = c1.text_input("Stok No")
-                ad = c2.text_input("Ürün Adı")
-                miktar = c3.number_input("Miktar", min_value=0, step=1)
-                kritik = c4.number_input("Kritik Stok", value=10)
-                birim = st.text_input("Birim (Adet, Kg vb.)")
-                skt_t = st.date_input("⏳ SKT")
-                if st.form_submit_button("🚀 Ekle"):
-                    if ad and stok:
-                        yeni_id = int(df['ID'].max()) + 1 if not df.empty else 1
-                        ws_malzemeler.append_row([yeni_id, stok, ad, miktar, birim, datetime.now().strftime('%Y-%m-%d'), skt_t.strftime('%Y-%m-%d'), "-", "-", "", kritik])
-                        log_kaydet(st.session_state['kullanici'], "YENİ ÜRÜN", ad, miktar, "Eklendi.")
-                        st.success("✅ Ürün eklendi!")
-                        st.rerun()
 
     with sekme3:
         st.subheader("🔄 Ürün Bilgilerini Güncelle")
