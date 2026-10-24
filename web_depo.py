@@ -136,8 +136,8 @@ if not st.session_state['giris_yapildi']:
                             st.rerun()
                     else:
                             st.error("❌ Bu depoya giriş yetkiniz bulunmamaktadır!")
-                    else:
-                            st.error("❌ Kullanıcı adı veya şifre hatalı!")
+            else:
+                st.error("❌ Kullanıcı adı veya şifre hatalı!")
                     else:
                         df = verileri_getir()
                         bugun = datetime.now().date()
