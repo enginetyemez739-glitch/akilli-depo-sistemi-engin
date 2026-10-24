@@ -134,9 +134,9 @@ else:
         st.warning(f"⚠️ Dikkat: Şifrenizin geçerlilik süresinin dolmasına {kalan_gun} gün kalmıştır.")
     
     st.rerun()
-                    else:
+else:
         st.error("❌ Bu depoya giriş yetkiniz bulunmamaktadır!")
-               else:
+else:
         st.error("❌ Kullanıcı adı veya şifre hatalı!")
 else:
     df = verileri_getir()
