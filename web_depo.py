@@ -126,7 +126,7 @@ kalan_gun = 90 - gecen_gun
 
 if gecen_gun >= 90:
     st.session_state['sifre_degistirme_modu'] = True
-else:
+    else:
     st.session_state['sifre_degistirme_modu'] = False
     st.session_state['giris_yapildi'] = True
     
