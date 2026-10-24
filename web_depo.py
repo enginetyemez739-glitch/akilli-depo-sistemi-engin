@@ -138,11 +138,11 @@ if not st.session_state['giris_yapildi']:
                         st.error("❌ Bu depoya giriş yetkiniz bulunmamaktadır!")
             else:
                 st.error("❌ Kullanıcı adı veya şifre hatalı!")
-                    else:
-                        df = verileri_getir()
-                        bugun = datetime.now().date()
+else:
+    df = verileri_getir()
+    bugun = datetime.now().date()
                         
-                        c_ust1, c_ust2 = st.columns([4, 1])
+    c_ust1, c_ust2 = st.columns([4, 1])
     with c_ust1: st.title("📦 MİDES - Merkezi İkmal ve Depo Sistemi")
     with c_ust2:
         st.write(f"👤 {st.session_state['kullanici']}")
