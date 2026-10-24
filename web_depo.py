@@ -135,7 +135,7 @@ if not st.session_state['giris_yapildi']:
                             
                             st.rerun()
                     else:
-                            st.error("❌ Bu depoya giriş yetkiniz bulunmamaktadır!")
+                        st.error("❌ Bu depoya giriş yetkiniz bulunmamaktadır!")
             else:
                 st.error("❌ Kullanıcı adı veya şifre hatalı!")
                     else:
