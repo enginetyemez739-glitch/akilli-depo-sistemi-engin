@@ -229,8 +229,7 @@ else:
             kritik_seviye = st.number_input("Kritik Uyarı Seviyesi", min_value=1, value=20)
             uretim_tarihi = st.date_input("Üretim Tarihi")
             skt = st.date_input("Son Kullanma Tarihi (SKT)")
-            
-        ekle_btn = st.form_submit_button("Ürünü Kaydet", use_container_width=True)
+            ekle_btn = st.form_submit_button("Ürünü Kaydet", use_container_width=True)
         
         if ekle_btn:
             if urun_adi and stok_no:
