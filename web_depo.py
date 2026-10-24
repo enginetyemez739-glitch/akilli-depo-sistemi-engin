@@ -214,8 +214,40 @@ else:
         gosterilecek_df = df.drop(columns=['Resim Yolu', 'Miktar_Sayi'], errors='ignore')
         st.dataframe(gosterilecek_df, use_container_width=True, hide_index=True)
 
-    with sekme2:
-        st.subheader("➕ Yeni Ürün Girişi")
+    with sekme_2:
+    st.subheader("Depoya Yeni Ürün Ekle")
+    with st.form("urun_ekle_formu"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            stok_no = st.text_input("Stok Numarası (Barkod)")
+            urun_adi = st.text_input("Ürün Adı")
+            miktar = st.number_input("Miktar", min_value=0.0, step=1.0)
+            birim = st.selectbox("Birim", ["Kg", "Litre", "Adet", "Kutu", "Paket"])
+            
+        with col2:
+            kritik_seviye = st.number_input("Kritik Uyarı Seviyesi", min_value=1, value=20)
+            uretim_tarihi = st.date_input("Üretim Tarihi")
+            skt = st.date_input("Son Kullanma Tarihi (SKT)")
+            
+        ekle_btn = st.form_submit_button("Ürünü Kaydet", use_container_width=True)
+        
+        if ekle_btn:
+            if urun_adi and stok_no:
+                # Tabloya yazılacak bugünün tarihi (Depo Giriş Tarihi)
+                bugun = datetime.now().strftime("%Y-%m-%d")
+                
+                # Benzersiz ID oluşturma
+                yeni_id = 1 if df.empty else int(df['ID'].max()) + 1
+                
+                # Satırı Google Sheets'e gönderme
+                yeni_satir = [yeni_id, stok_no, urun_adi, miktar, birim, bugun, str(skt), str(uretim_tarihi), kritik_seviye]
+                aktif_tablo.append_row(yeni_satir)
+                
+                st.success(f"✅ {urun_adi} depoya başarıyla kaydedildi! Sayfa yenileniyor...")
+                st.rerun()
+            else:
+                st.error("Lütfen Stok Numarası ve Ürün Adı alanlarını doldurunuz.")
 
     with sekme3:
         st.subheader("🔄 Ürün Bilgilerini Güncelle")
