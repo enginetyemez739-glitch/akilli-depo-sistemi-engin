@@ -214,7 +214,7 @@ else:
         gosterilecek_df = df.drop(columns=['Resim Yolu', 'Miktar_Sayi'], errors='ignore')
         st.dataframe(gosterilecek_df, use_container_width=True, hide_index=True)
 
-    with sekme_2:
+    with sekme2:
         st.subheader("Depoya Yeni Ürün Ekle")
         with st.form("urun_ekle_formu"):
             col1, col2 = st.columns(2)
